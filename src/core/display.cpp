@@ -579,6 +579,52 @@ int loopOptions(
             break;
         }
 
+#ifdef HAS_ENCODER
+        // Drain the exact number of pending encoder steps in one pass, so a
+        // fast spin (in either direction) applies its true net movement
+        // before the next redraw, instead of being limited to one item per
+        // redraw pass. Turning N steps one way then N steps back always
+        // lands back on the same item, since findNextEnabled(+1)/(-1) are
+        // exact inverses and every real step gets applied, none skipped.
+        //
+        // PrevPress/NextPress/UpPress/DownPress can also be set by
+        // non-encoder sources on some boards (a physical keyboard on
+        // T-Lora-Pager, a touchscreen on the WaveSentry variant) which
+        // don't feed the step counter. If the counter is empty but one of
+        // those flags was set, fall back to a single step exactly like the
+        // original per-press behavior, so those input sources are unaffected.
+        bool altPrev = PrevPress || UpPress;
+        bool altNext = NextPress || DownPress;
+        int32_t steps = drainRotarySteps();
+        check(PrevPress);
+        check(NextPress);
+        check(UpPress);
+        check(DownPress);
+        if (steps == 0) {
+            if (altPrev) steps = 1;
+            else if (altNext) steps = -1;
+        }
+        if (steps != 0) devModeCounter = 0;
+        while (steps > 0) {
+            int prevEnabled = findNextEnabled(index, -1);
+            if (prevEnabled < 0) break;
+            index = prevEnabled;
+            steps--;
+            redraw = true;
+        }
+        while (steps < 0) {
+            int nextEnabled = findNextEnabled(index, +1);
+            if (nextEnabled < 0) break;
+            if (!bruceConfig.devMode && nextEnabled <= index) devModeCounter++;
+            index = nextEnabled;
+            steps++;
+            redraw = true;
+        }
+        // Match the rotary encoder's own poll cadence here instead of the
+        // generic 10ms menu-loop pacing, so a backed-up run of detents can
+        // drain without an artificial per-iteration floor on top of it.
+        vTaskDelay(4 / portTICK_PERIOD_MS);
+#else
         if (PrevPress || check(UpPress)) {
             devModeCounter = 0;
 #ifdef HAS_KEYBOARD
@@ -588,7 +634,6 @@ int loopOptions(
             redraw = true;
 #else
             long _tmp = millis();
-#ifndef HAS_ENCODER // T-Embed doesn't need it
             LongPress = true;
             while (PrevPress && menuType != MENU_TYPE_MAIN) {
                 if (millis() - _tmp > 200)
@@ -608,7 +653,6 @@ int loopOptions(
                 tftWidth / 2, tftHeight / 2, 25, 15, 0, 360, bruceConfig.bgColor, bruceConfig.bgColor
             );
             LongPress = false;
-#endif
             if (millis() - _tmp > 700) { // longpress detected to exit
                 index = -1;
                 break;
@@ -629,12 +673,6 @@ int loopOptions(
             }
             redraw = true;
         }
-#ifdef HAS_ENCODER
-        // Match the rotary encoder's own poll cadence here instead of the
-        // generic 10ms menu-loop pacing, so a backed-up run of detents can
-        // drain without an artificial per-iteration floor on top of it.
-        vTaskDelay(4 / portTICK_PERIOD_MS);
-#else
         vTaskDelay(10 / portTICK_PERIOD_MS);
 #endif
 
