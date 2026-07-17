@@ -836,9 +836,9 @@ void showHowToRunScreen() {
         {"2. Unzip both files to SD card",      false, false},
         {"BruceLM/models/:",                    true,  false},
         {"models/Chat2M/chat2M.bin",            true,  true },
-        {"models/Chat2M/tok512.bin",            true,  true },
+        {"models/Chat2M/tok896.bin",            true,  true },
         {"models/Stories260K/stories260K.bin",  true,  true },
-        {"models/Stories260K/tok512.bin",       true,  true },
+        {"models/Stories260K/tok896.bin",       true,  true },
         {"3. Turn off chat templates",          false, false},
         {"for stories260K",                     true,  false},
         {"4. You can create your own models",   false, false},
@@ -1094,7 +1094,7 @@ void bruceLM_setup() {
                 "Select the tokenizer file that\n"
                 "matches your model.\n"
                 "\n"
-                "(e.g. \"tok512.bin\")",
+                "(e.g. \"tok896.bin\")",
                 "OK: continue   Esc: cancel",
                 "Press OK to open the file picker"
             ))
